@@ -346,7 +346,7 @@ vips_format_get_flags( VipsFormatClass *format, const char *filename )
 /* VIPS format class.
  */
 
-static const char *vips_suffs[] = { ".v", ".vips", NULL };
+static const char *vips_suffs[] = { ".v", NULL };
 
 int
 im_isvips( const char *filename )

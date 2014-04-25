@@ -233,7 +233,6 @@ vips_foreign_load_webp_buffer_class_init(
 	object_class->nickname = "webpload_buffer";
 	object_class->description = _( "load webp from buffer" );
 
-	load_class->is_a_buffer = vips__iswebp_buffer; 
 	load_class->header = vips_foreign_load_webp_buffer_header;
 	load_class->load = vips_foreign_load_webp_buffer_load;
 

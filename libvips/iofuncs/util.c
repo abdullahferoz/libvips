@@ -765,13 +765,16 @@ vips__file_open_write( const char *filename, gboolean text_mode )
 char *
 vips__file_read( FILE *fp, const char *filename, unsigned int *length_out )
 {
-        gint64 len;
+        long len;
 	size_t read;
         char *str;
 
-	len = vips_file_length( fileno( fp ) ); 
-	if( len > 1024 * 1024 * 1024 ) {
-		/* Over a gb? Seems crazy!
+        /* Find length.
+         */
+        fseek( fp, 0L, 2 );
+        len = ftell( fp );
+	if( len > 20 * 1024 * 1024 ) {
+		/* Seems crazy!
 		 */
                 vips_error( "vips__file_read", 
 			_( "\"%s\" too long" ), filename );

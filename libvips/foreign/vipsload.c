@@ -105,7 +105,7 @@ vips_foreign_load_vips_header( VipsForeignLoad *load )
 	return( 0 );
 }
 
-const char *vips__suffs[] = { ".v", ".vips", NULL };
+static const char *vips_suffs[] = { ".v", NULL };
 
 static void
 vips_foreign_load_vips_class_init( VipsForeignLoadVipsClass *class )
@@ -121,7 +121,7 @@ vips_foreign_load_vips_class_init( VipsForeignLoadVipsClass *class )
 	object_class->nickname = "vipsload";
 	object_class->description = _( "load vips from file" );
 
-	foreign_class->suffs = vips__suffs;
+	foreign_class->suffs = vips_suffs;
 
 	load_class->is_a = vips_foreign_load_vips_is_a;
 	load_class->get_flags = vips_foreign_load_vips_get_flags;
