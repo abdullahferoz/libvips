@@ -111,6 +111,8 @@
 #include <vips/vips.h>
 #include <vips/internal.h>
 
+#include "miniz.c"
+
 /* Round N down to P boundary. 
  */
 #define ROUND_DOWN(N,P) ((N) - ((N) % P)) 
@@ -119,8 +121,28 @@
  */
 #define ROUND_UP(N,P) (ROUND_DOWN( (N) + (P) - 1, (P) ))
 
+#define MAX_STRING_LEN 80
+
 typedef struct _VipsForeignSaveDz VipsForeignSaveDz;
 typedef struct _Layer Layer;
+
+
+typedef unsigned char uint8;
+typedef unsigned short uint16;
+typedef unsigned int uint;
+
+// The string to compress.
+static const char *s_pTest_str =
+  "MISSION CONTROL I wouldn't worry too much about the computer. First of all, there is still a chance that he is right, despite your tests, and" \
+  "if it should happen again, we suggest eliminating this possibility by allowing the unit to remain in place and seeing whether or not it" \
+  "actually fails. If the computer should turn out to be wrong, the situation is still not alarming. The type of obsessional error he may be" \
+  "guilty of is not unknown among the latest generation of HAL 9000 computers. It has almost always revolved around a single detail, such as" \
+  "the one you have described, and it has never interfered with the integrity or reliability of the computer's performance in other areas." \
+  "No one is certain of the cause of this kind of malfunctioning. It may be over-programming, but it could also be any number of reasons. In any" \
+  "event, it is somewhat analogous to human neurotic behavior. Does this answer your query?  Zero-five-three-Zero, MC, transmission concluded.";
+
+static const char *s_pComment = "This is a comment";
+
 
 /* A layer in the pyramid.
  */
@@ -382,6 +404,8 @@ pyramid_mkdir( VipsForeignSaveDz *dz )
 static int
 write_dzi( VipsForeignSaveDz *dz )
 {
+
+/*
 	FILE *fp;
 	char buf[VIPS_PATH_MAX];
 	char *p;
@@ -393,21 +417,73 @@ write_dzi( VipsForeignSaveDz *dz )
 	vips_snprintf( buf, VIPS_PATH_MAX, "%s", dz->suffix + 1 );
 	if( (p = (char *) vips__find_rightmost_brackets( buf )) )
 		*p = '\0';
+	
+		fprintf( fp, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" ); 
+		fprintf( fp, "<Image "
+			"xmlns=\"http://schemas.microsoft.com/deepzoom/2008\"\n" );
+		fprintf( fp, "  Format=\"%s\"\n", buf );
+		fprintf( fp, "  Overlap=\"%d\"\n", dz->overlap );
+		fprintf( fp, "  TileSize=\"%d\"\n", dz->tile_size );
+		fprintf( fp, "  >\n" ); 
+		fprintf( fp, "  <Size \n" );
+		fprintf( fp, "    Height=\"%d\"\n", dz->layer->height );
+		fprintf( fp, "    Width=\"%d\"\n", dz->layer->width );
+		fprintf( fp, "  />\n" ); 
+		fprintf( fp, "</Image>\n" );
 
-	fprintf( fp, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" ); 
-	fprintf( fp, "<Image "
-		"xmlns=\"http://schemas.microsoft.com/deepzoom/2008\"\n" );
-	fprintf( fp, "  Format=\"%s\"\n", buf );
-	fprintf( fp, "  Overlap=\"%d\"\n", dz->overlap );
-	fprintf( fp, "  TileSize=\"%d\"\n", dz->tile_size );
-	fprintf( fp, "  >\n" ); 
-	fprintf( fp, "  <Size \n" );
-	fprintf( fp, "    Height=\"%d\"\n", dz->layer->height );
-	fprintf( fp, "    Width=\"%d\"\n", dz->layer->width );
-	fprintf( fp, "  />\n" ); 
-	fprintf( fp, "</Image>\n" );
+		fclose( fp );
+*/
 
-	fclose( fp );
+		char buf[VIPS_PATH_MAX];
+		vips_snprintf( buf, VIPS_PATH_MAX, "%s.dzi", dz->basename );
+			
+
+
+//Zip .dzi Block
+	char dzi_data[2000];
+	sprintf( dzi_data, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" ); 
+	sprintf( dzi_data, "%s<Image "
+		"xmlns=\"http://schemas.microsoft.com/deepzoom/2008\"\n",dzi_data );
+	sprintf( dzi_data, "%s  Format=\"%s\"\n", dzi_data, buf );
+	sprintf( dzi_data, "%s  Overlap=\"%d\"\n", dzi_data, dz->overlap );
+	sprintf( dzi_data, "%s  TileSize=\"%d\"\n", dzi_data, dz->tile_size );
+	sprintf( dzi_data, "%s  >\n" ,dzi_data); 
+	sprintf( dzi_data, "%s  <Size \n" ,dzi_data);
+	sprintf( dzi_data, "%s    Height=\"%d\"\n", dzi_data, dz->layer->height );
+	sprintf( dzi_data, "%s    Width=\"%d\"\n", dzi_data, dz->layer->width );
+	sprintf( dzi_data, "%s  />\n" ,dzi_data); 
+	sprintf( dzi_data, "%s</Image>" ,dzi_data);
+
+
+
+	mz_bool status;
+	size_t uncomp_size;
+	mz_zip_archive zip_archive;
+	//void *p;
+	const int N = 50;
+	char data[2048];
+	//char archive_filename[64];
+	char s_Test_archive_filename[100];
+	char archive_filename[100];	
+
+	sprintf(s_Test_archive_filename, "%s%s", dz->basename,".zip");
+	
+	sprintf(archive_filename, "%s%s", dz->basename ,".dzi");
+	
+
+ 	assert((strlen(s_pTest_str) + 64) < sizeof(dzi_data));
+
+
+	// Delete the test archive, so it doesn't keep growing as we run this test
+	//remove(s_Test_archive_filename);
+
+
+	mz_zip_add_mem_to_archive_file_in_place(s_Test_archive_filename, archive_filename, dzi_data, strlen(dzi_data), s_pComment, (uint16)strlen(s_pComment), MZ_BEST_COMPRESSION);
+
+//////////////////////Zip .dzi Block
+	
+
+
 
 	return( 0 );
 }
@@ -763,8 +839,7 @@ tile_name( Layer *layer, char *buf, int x, int y )
 			vips_mkdirf( "%s", dirname ) ) {
 			g_mutex_unlock( file_lock );
 			return( -1 );
-		}
-
+		} 
 		break;
 
 	case VIPS_FOREIGN_DZ_LAYOUT_GOOGLE:
@@ -794,7 +869,15 @@ tile_name( Layer *layer, char *buf, int x, int y )
 		g_mutex_unlock( file_lock );
 		return( -1 );
 	}
-
+	/*
+	char zip_filename[100];
+	char directory_name[100];
+ 	sprintf(zip_filename, "%s%s", dz->basename,".zip");
+	sprintf(directory_name, "%d/", layer->n);
+	*/
+	//printf("%s\n", dirname);
+	// Add a directory entry for in Zip
+  	//mz_zip_add_mem_to_archive_file_in_place(zip_filename, directory_name, NULL, 0, "no comment", (uint16)strlen("no comment"), MZ_BEST_COMPRESSION);
 	g_mutex_unlock( file_lock );
 
 	return( 0 );
@@ -810,6 +893,8 @@ strip_work( VipsThreadState *state, void *a )
 	char buf[VIPS_PATH_MAX];
 	VipsImage *x;
 	VipsImage *t;
+	size_t lengthx;
+	void *mybuffer;
 
 #ifdef DEBUG_VERBOSE
 	printf( "strip_work\n" );
@@ -866,22 +951,79 @@ strip_work( VipsThreadState *state, void *a )
 		x = t;
 	}
 
-#ifdef DEBUG_VERBOSE
-	printf( "strip_work: writing to %s\n", buf );
-#endif /*DEBUG_VERBOSE*/
 
-	if( vips_image_write_to_file( x, buf ) ) {
+	
+		
+	if( vips_jpegsave_buffer( x, &mybuffer, &lengthx,NULL) ) {
 		g_object_unref( x );
 		return( -1 );
 	}
-	g_object_unref( x );
+	g_object_unref( x );	
+	
+	/* maybe minizip doesn't like more than one write active at once.
+	 */
+	g_mutex_lock( vips__global_lock );
+
+		
+//////////////This is Zipping
+
+ 
+  mz_bool status;
+  size_t uncomp_size;
+  mz_zip_archive zip_archive;
+  void *p;
+  const int N = 50;
+  char archive_filename[64];
+  static const char *s_pComment = "This is a comment";
+  char s_Test_archive_filename[100];
+  sprintf(s_Test_archive_filename, "%s%s", dz->basename,".zip");
+
+
+  // Append a bunch of text files to the test archive
+
+    sprintf(archive_filename, "%s", buf);
+ 
+
+    // Add a new file to the archive. Note this is an IN-PLACE operation, so if it fails your archive is probably hosed (its central directory may not be complete) but it should be recoverable using zip -F or -FF. So use caution with this guy.
+    // A more robust way to add a file to an archive would be to read it into memory, perform the operation, then write a new archive out to a temp file and then delete/rename the files.
+    // Or, write a new archive to disk to a temp file, then delete/rename the files. For this test this API is fine.
+
+
+char picName[2048];
+sprintf(picName,"%s",buf);
+
+if (strstr(picName, ".jpeg") != NULL) {
+    //printf("%s\n",picName);
+
+
+
+
+	//printf("The image name is :%s\n", buf);
+	//printf("The mybuffer value is:%p\n", mybuffer);
+	status = mz_zip_add_mem_to_archive_file_in_place(s_Test_archive_filename, archive_filename, mybuffer, lengthx, s_pComment, (uint16)strlen(s_pComment), MZ_NO_COMPRESSION);
+        
+
+	if (!status)
+	{
+	 printf("mz_zip_add_mem_to_archive_file_in_place failed!\n");
+	 return EXIT_FAILURE;						
+	}
+}
+
+
+g_free( mybuffer );
+g_mutex_unlock( vips__global_lock );
+//////////////This is Zipping
+
+
 
 #ifdef DEBUG_VERBOSE
 	printf( "strip_work: success\n" );
 #endif /*DEBUG_VERBOSE*/
 
-	return( 0 );
+	return( 0 );	
 }
+
 
 /* Write a line of tiles with a threadpool. 
  */
@@ -905,6 +1047,7 @@ strip_save( Layer *layer )
 
 	return( 0 );
 }
+
 
 /* A strip has filled, but the rightmost column and the bottom-most row may
  * not have been if we've rounded the size up.
