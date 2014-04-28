@@ -36,7 +36,10 @@
 * - add --angle option
 * 19/6/13
 * - faster --centre logic, thanks Kacey
+ * 28/4/14
+* - use miniz for output so we can write to .zip.
 */
+
 
 /*
 
@@ -142,6 +145,10 @@ static const char *s_pTest_str =
 
 static const char *s_pComment = "This is a comment";
 
+char picName[2048];
+mz_bool status;
+char s_Test_archive_filename[100];
+
 
 /* A layer in the pyramid.
 */
@@ -187,6 +194,8 @@ int n;	/* Layer number ... 0 for smallest */
 
 Layer *below;	/* Tiles go to here */
 Layer *above;	/* Tiles come from here */
+
+
 };
 
 struct _VipsForeignSaveDz {
@@ -404,34 +413,6 @@ static int
 write_dzi( VipsForeignSaveDz *dz )
 {
 
-/*
-FILE *fp;
-char buf[VIPS_PATH_MAX];
-char *p;
-
-vips_snprintf( buf, VIPS_PATH_MAX, "%s.dzi", dz->basename );
-if( !(fp = vips__file_open_write( buf, TRUE )) )
-return( -1 );
-
-vips_snprintf( buf, VIPS_PATH_MAX, "%s", dz->suffix + 1 );
-if( (p = (char *) vips__find_rightmost_brackets( buf )) )
-*p = '\0';
-fprintf( fp, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" );
-fprintf( fp, "<Image "
-"xmlns=\"http://schemas.microsoft.com/deepzoom/2008\"\n" );
-fprintf( fp, " Format=\"%s\"\n", buf );
-fprintf( fp, " Overlap=\"%d\"\n", dz->overlap );
-fprintf( fp, " TileSize=\"%d\"\n", dz->tile_size );
-fprintf( fp, " >\n" );
-fprintf( fp, " <Size \n" );
-fprintf( fp, " Height=\"%d\"\n", dz->layer->height );
-fprintf( fp, " Width=\"%d\"\n", dz->layer->width );
-fprintf( fp, " />\n" );
-fprintf( fp, "</Image>\n" );
-
-fclose( fp );
-*/
-
 char buf[VIPS_PATH_MAX];
 vips_snprintf( buf, VIPS_PATH_MAX, "%s.dzi", dz->basename );
 
@@ -454,26 +435,15 @@ sprintf( dzi_data, "%s</Image>" ,dzi_data);
 
 
 
-mz_bool status;
-size_t uncomp_size;
-mz_zip_archive zip_archive;
-//void *p;
-const int N = 50;
-char data[2048];
-//char archive_filename[64];
-char s_Test_archive_filename[100];
+
+
 char archive_filename[100];	
 
 sprintf(s_Test_archive_filename, "%s%s", dz->basename,".zip");
 
 sprintf(archive_filename, "%s%s", dz->basename ,".dzi");
 
-
-  assert((strlen(s_pTest_str) + 64) < sizeof(dzi_data));
-
-
-// Delete the test archive, so it doesn't keep growing as we run this test
-//remove(s_Test_archive_filename);
+assert((strlen(s_pTest_str) + 64) < sizeof(dzi_data));
 
 
 mz_zip_add_mem_to_archive_file_in_place(s_Test_archive_filename, archive_filename, dzi_data, strlen(dzi_data), s_pComment, (uint16)strlen(s_pComment), MZ_BEST_COMPRESSION);
@@ -867,6 +837,8 @@ g_assert( 0 );
 g_mutex_unlock( file_lock );
 return( -1 );
 }
+
+sprintf(s_Test_archive_filename, "%s%s", dz->basename,".zip");
 /*
 char zip_filename[100];
 char directory_name[100];
@@ -886,7 +858,7 @@ strip_work( VipsThreadState *state, void *a )
 {
 Strip *strip = (Strip *) a;
 Layer *layer = strip->layer;
-Vi	psForeignSaveDz *dz = layer->dz;
+VipsForeignSaveDz *dz = layer->dz;
 
 char buf[VIPS_PATH_MAX];
 VipsImage *x;
@@ -919,6 +891,8 @@ state->y / dz->tile_size );
 return( 0 );
 }
 }
+
+
 
 if( tile_name( layer, buf,
 state->x / dz->tile_size, state->y / dz->tile_size ) )
@@ -966,39 +940,21 @@ g_mutex_lock( vips__global_lock );
 //////////////This is Zipping
 
  
-  mz_bool status;
-  size_t uncomp_size;
-  mz_zip_archive zip_archive;
-  void *p;
-  const int N = 50;
-  char archive_filename[64];
-  static const char *s_pComment = "This is a comment";
-  char s_Test_archive_filename[100];
-  sprintf(s_Test_archive_filename, "%s%s", dz->basename,".zip");
 
-
-  // Append a bunch of text files to the test archive
-
-    sprintf(archive_filename, "%s", buf);
- 
-
-    // Add a new file to the archive. Note this is an IN-PLACE operation, so if it fails your archive is probably hosed (its central directory may not be complete) but it should be recoverable using zip -F or -FF. So use caution with this guy.
-    // A more robust way to add a file to an archive would be to read it into memory, perform the operation, then write a new archive out to a temp file and then delete/rename the files.
-    // Or, write a new archive to disk to a temp file, then delete/rename the files. For this test this API is fine.
-
-
-char picName[2048];
 sprintf(picName,"%s",buf);
 
 if (strstr(picName, ".jpeg") != NULL) {
     //printf("%s\n",picName);
 
 
+// Append a bunch of text files to the test archive
+//sprintf(archive_filename, "%s", buf);
+ 
 
 
 //printf("The image name is :%s\n", buf);
 //printf("The mybuffer value is:%p\n", mybuffer);
-status = mz_zip_add_mem_to_archive_file_in_place(s_Test_archive_filename, archive_filename, mybuffer, lengthx, s_pComment, (uint16)strlen(s_pComment), MZ_NO_COMPRESSION);
+status = mz_zip_add_mem_to_archive_file_in_place(s_Test_archive_filename, picName, mybuffer, lengthx, s_pComment, (uint16)strlen(s_pComment), MZ_NO_COMPRESSION);
         
 
 if (!status)
